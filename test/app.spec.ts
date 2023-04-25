@@ -1,7 +1,8 @@
-import { describe, beforeEach, it, beforeAll, afterAll, expect } from '@jest/globals'
+import { describe, beforeEach, it, beforeAll, afterAll, expect, jest } from '@jest/globals'
 import superagent from 'superagent'
 import { start, stop } from '../src/app.js'
 import { db } from '../src/db.js'
+import { mockWithdrawal } from '../src/service.js'
 
 const PORT = 3001
 const URL = 'http://localhost:' + PORT
@@ -114,5 +115,25 @@ describe('app', () => {
     expect(response.status).toBe(202)
     expect(response.body).toHaveProperty('message', expect.stringMatching(/success/i))
     expect(user.amount).toBe(0)
+  })
+
+  it('does not subtract amount when withdrawal fails', async () => {
+    mockWithdrawal(() => { throw new Error() })
+    try {
+      const response = await superagent.agent()
+        .post(URL + '/withdraw')
+        .send({
+          id: 1,
+          amount: 1000
+        })
+        .ok(() => true)
+
+      const user = await findUser()
+
+      expect(response.status).toBe(500)
+      expect(user.amount).toBe(1000)
+    } finally {
+      mockWithdrawal(false)
+    }
   })
 })
