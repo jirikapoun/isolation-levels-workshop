@@ -22,7 +22,7 @@ app.post('/withdraw', bodyParser.json(), async (req, res) => {
       .json({ error: 'Amount must be a positive number'})
   }
 
-  await db.query('begin transaction')
+  await db.query('begin transaction isolation level serializable')
   try {
     const select = await db.query('select * from users where id = $1', [id])
     if (select.length < 1) {
