@@ -1,0 +1,11 @@
+name: isolation-levels-workshop
+
+services:
+  db:
+    image: postgres
+    environment:
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - 5432:5432
+    healthcheck:
+      test: pg_isready -U postgres -h 127.0.0.1
