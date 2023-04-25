@@ -22,27 +22,38 @@ app.post('/withdraw', bodyParser.json(), async (req, res) => {
       .json({ error: 'Amount must be a positive number'})
   }
 
-  const select = await db.query('select * from users where id = $1', [id])
-  if (select.length < 1) {
+  await db.query('begin transaction')
+  try {
+    const select = await db.query('select * from users where id = $1', [id])
+    if (select.length < 1) {
+      return res
+        .status(404)
+        .json({ error: 'User not found' })
+    }
+
+    const user = select[0]
+    if (user.amount < amount) {
+      return res
+        .status(400)
+        .json({ error: 'User does not have sufficient amount' })
+    }
+
+    await db.query('update users set amount = $1 where id = $2', [user.amount - amount, id])
+
+    await performWithdrawal(id, amount)
+
+    await db.query('commit')
+
     return res
-      .status(404)
-      .json({ error: 'User not found' })
-  }
+      .status(202)
+      .json({ message: 'Withdrawal request processed successfully' })
+  } catch (e) {
+    await db.query('rollback')
 
-  const user = select[0]
-  if (user.amount < amount) {
     return res
-      .status(400)
-      .json({ error: 'User does not have sufficient amount'})
+      .status(500)
+      .json({ message: 'Withdrawal request processing failed' })
   }
-
-  await db.query('update users set amount = $1 where id = $2', [user.amount - amount, id])
-
-  await performWithdrawal(id, amount)
-
-  return res
-    .status(202)
-    .json({ message: 'Withdrawal request processed successfully'})
 })
 
 export const start = async (port: number) => new Promise<void>(resolve => server = app.listen(port, resolve))
