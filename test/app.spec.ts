@@ -136,4 +136,35 @@ describe('app', () => {
       mockWithdrawal(false)
     }
   })
+
+  it('correctly handles concurrent requests', async () => {
+    let withdrawalCount = 0
+    mockWithdrawal(() => { withdrawalCount++ })
+    try {
+      const createRequest = () => superagent.agent()
+        .post(URL + '/withdraw')
+        .send({
+          id: 1,
+          amount: 100
+        })
+        .ok(() => true)
+
+      const responses = await Promise.all([
+        createRequest(),
+        createRequest(),
+        createRequest(),
+        createRequest(),
+        createRequest(),
+      ])
+      const successfulResponses = responses.filter(response => response.status === 202)
+
+      const user = await findUser()
+
+      expect(successfulResponses.length).toBeGreaterThan(0)
+      expect(withdrawalCount).toBe(successfulResponses.length)
+      expect(user.amount).toBe(1000 - successfulResponses.length * 100)
+    } finally {
+      mockWithdrawal(false)
+    }
+  })
 })
